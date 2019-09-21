@@ -1,6 +1,6 @@
 ## Accelerated Information Gradient flow
 
-We present the codes for the numerical experiments.
+We present the codes for the numerical experiments in the paper Accelerated Information Gradient flow.
 
 ### Instructions
 
