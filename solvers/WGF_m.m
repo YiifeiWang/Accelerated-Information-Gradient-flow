@@ -21,11 +21,9 @@ function [Xs,out] = WGF_m(X_init, dlog_p, opts)
 %						   1: Bayesian logistic regression
 %							  opts.X_test, opts.y_test shall NOT be empty
 %				 rtype --- option in the subproblem of the HE method
-%				 h_pow --- parameter in the HE method
 %				 ttype --- option in decaying tau
+%				 h_pow --- parameter in the HE method
 %
-%
-% Author: Yifei Wang, 2019
 % 
 %%%---------------------------------------------%%%
 	tic;

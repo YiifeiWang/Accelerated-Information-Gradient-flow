@@ -4,6 +4,9 @@ function [Xs,out] = WNAG(X_init, dlog_p, opts)
 % Accelerated First-order Methods on the Wasserstein Space for Bayesian Inference
 % by Liu, Chang and Zhuo, Jingwei and Cheng, Pengyu 
 % and Zhang, Ruiyi and Zhu, Jun and Carin, Lawrence
+% This is based on the tensorflow version
+% https://github.com/chang-ml-thu/AWGF
+%
 % 
 % Input:
 % 		X_init --- initial particle positions, N*d matrix
@@ -30,6 +33,8 @@ function [Xs,out] = WNAG(X_init, dlog_p, opts)
 %				 alpha --- acceleration parameter for WNAG
 %			   acc_bnd --- parameter for Wnes
 %			   acc_shk --- parameter for Wnes
+%
+%
 %%%---------------------------------------------%%%
 	tic;
 	[N,d] = size(X_init);

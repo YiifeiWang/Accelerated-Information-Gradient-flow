@@ -24,6 +24,7 @@ function [Xs,out] = AIG_SE(X_init, dlog_p, opts)
 %							  opts.X_test, opts.y_test shall NOT be empty
 %				 rtype --- option in the subproblem of the HE method
 %				 ttype --- option in decaying tau
+%				 h_pow --- parameter in the HE method
 %
 % 
 %%%---------------------------------------------%%%
