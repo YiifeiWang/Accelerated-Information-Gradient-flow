@@ -26,31 +26,29 @@ function [result_a] = get_plt(results)
         result_a{i}.test_llh = 0;
         result_a{i}.test_llh_var = 0;
         result_a{i}.name = results{i,1}.Pname;
-        %result_a{i}.iter = results{i,1}.trace.iter;
         result_a{i}.iter = iter;
+        result_a{i}.num = 0;
     end
     for i = 1:N_alg
         for j = 1:N_test
-            result_a{i}.test_acc = result_a{i}.test_acc+results{i,j}.trace.test_acc;
+            if sum(results{i,j}.trace.test_acc(end-10:end))~=0 && ~isnan(sum(results{i,j}.trace.test_llh(end-10:end)))
+                result_a{i}.test_acc = result_a{i}.test_acc+results{i,j}.trace.test_acc;
+                result_a{i}.test_llh = result_a{i}.test_llh+results{i,j}.trace.test_llh;
+                result_a{i}.num = result_a{i}.num+1;
+            end
         end
-        result_a{i}.test_acc = result_a{i}.test_acc/N_test;
+        result_a{i}.test_acc = result_a{i}.test_acc/result_a{i}.num;
+        result_a{i}.test_llh = result_a{i}.test_llh/result_a{i}.num;
         for j = 1:N_test
-            result_a{i}.test_acc_var = result_a{i}.test_acc_var+...
-                (result_a{i}.test_acc-results{i,j}.trace.test_acc).^2;
+            if sum(results{i,j}.trace.test_acc(end-10:end))~=0 && ~isnan(sum(results{i,j}.trace.test_llh(end-10:end)))
+                result_a{i}.test_acc_var = result_a{i}.test_acc_var+...
+                    (result_a{i}.test_acc-results{i,j}.trace.test_acc).^2;
+                result_a{i}.test_llh_var = result_a{i}.test_llh_var+...
+                    (result_a{i}.test_llh-results{i,j}.trace.test_llh).^2;
+            end
         end
-        result_a{i}.test_acc_var = sqrt(result_a{i}.test_acc_var/(N_test-1));
-    end
-
-    for i = 1:N_alg
-        for j = 1:N_test
-            result_a{i}.test_llh = result_a{i}.test_llh+results{i,j}.trace.test_llh;
-        end
-        result_a{i}.test_llh = result_a{i}.test_llh/N_test;
-        for j = 1:N_test
-            result_a{i}.test_llh_var = result_a{i}.test_llh_var+...
-                (result_a{i}.test_llh-results{i,j}.trace.test_llh).^2;
-        end
-        result_a{i}.test_llh_var = sqrt(result_a{i}.test_llh_var/(N_test-1));
+        result_a{i}.test_acc_var = sqrt(result_a{i}.test_acc_var/(result_a{i}.num-1));
+        result_a{i}.test_llh_var = sqrt(result_a{i}.test_llh_var/(result_a{i}.num-1));
     end
 end
 
@@ -69,11 +67,11 @@ function [] = print_time(time_a,results_a,method)
     [N_alg, ~] = size(time_a);
     fprintf('%s\n',method);
     for i = 1:N_alg
-        fprintf('%6s ',results_a{i}.name);
+        fprintf('%8s ',results_a{i}.name);
     end
     fprintf('\n');
     for i = 1:N_alg
-        fprintf('%.3f ',time_a(i));
+        fprintf('%8.3f ',time_a(i));
     end
     fprintf('\n');
 end

@@ -22,84 +22,140 @@ Z_plot = reshape(Z_ans,[xnum,ynum]);
 
 rng(2);
 N = 200;
-X_init = randn([N,2]);
+X_aux = randn([N,1]);
+X_init = randn([N,2])+[0,10];
 dlog_p = @dlog_p_toy;
-tau = 1e-1;
-iter = 200;
 
-% MCMC
-opts1 = struct('tau',tau,'iter_num',iter,'ktype',0,'ibw',-1,'ptype',2);
-[Xout1,out1] = WGF_m(X_init, dlog_p, opts1);
+save_path = './result/toy/';
 
-clf
-figure(1);
-contourf(X,Y,Z_plot,7);
-colormap('white')
-hold;
-Xp = Xout1(:,1);
-Yp = Xout1(:,2);
-hp = scatter(Xp,Yp,40,'filled');
-set(gcf,'position',[40,40,640,640]);
-alpha(hp,0.9);
-title('MCMC','FontSize',64);
+%iter = 20;
+%iter = 200;
+iters = [20,40,80,160];
+wid = 320;
+hei = 320;
+for i = 1:length(iters)
+	iter = iters(i);
 
-print('-depsc','./result/toy/MCMC.eps');
-saveas(gcf,'./result/toy/MCMC.png');
+	opts1 = struct('tau',0.1,'iter_num',iter,'ktype',6,'ibw',-1,'ptype',2);
+	[Xout1,out1] = WGF_m(X_init, dlog_p, opts1);
 
-% MED
-opts2 = struct('tau',tau,'iter_num',iter,'ktype',1,'ibw',-1,'ptype',2);
-[Xout2,out2] = WGF_m(X_init, dlog_p, opts2);
+	clf
+	figure(1);
+	contourf(X,Y,Z_plot,7);
+	colormap('white')
+	hold on;
+	Xp = Xout1(:,1);
+	Yp = Xout1(:,2);
+	hp = scatter(Xp,Yp,40,'filled');
+	set(gcf,'position',[0,0,wid,hei]);
+	alpha(hp,0.9);
+	hold off;
+	title(strcat('W-GF Iter: ',mat2str(iter)),'FontSize',36);
+	save_path1 = strcat(save_path,'WGF_iter',mat2str(iter),'.eps');
+	print('-depsc',save_path1);
+	save_path2 = strcat(save_path,'WGF_iter',mat2str(iter),'.png');
+	saveas(gcf,save_path2);
 
-clf
-figure(2);
-contourf(X,Y,Z_plot,7);
-colormap('white')
-hold;
-Xp = Xout2(:,1);
-Yp = Xout2(:,2);
-hp = scatter(Xp,Yp,40,'filled');
-set(gcf,'position',[40,40,640,640]);
-alpha(hp,0.9);
-title('MED','FontSize',64);
+	opts2 = struct('tau',0.1,'iter_num',iter,'ktype',6,'ibw',-1,'ptype',2,'strong',0,'restart',1);
+	[Xout2,out2] = W_AIG(X_init, dlog_p, opts2);
 
-print('-depsc','./result/toy/MED.eps');
-saveas(gcf,'./result/toy/MED.png');
+	clf
+	figure(1);
+	contourf(X,Y,Z_plot,7);
+	colormap('white')
+	hold on;
+	Xp = Xout2(:,1);
+	Yp = Xout2(:,2);
+	hp = scatter(Xp,Yp,40,'filled');
+	hold off;
+	set(gcf,'position',[0,0,wid,hei]);
+	alpha(hp,0.9);
+	title(strcat('W-AIG Iter: ',mat2str(iter)),'FontSize',36);
+	save_path1 = strcat(save_path,'WAIG_iter',mat2str(iter),'.eps');
+	print('-depsc',save_path1);
+	save_path2 = strcat(save_path,'WAIG_iter',mat2str(iter),'.png');
+	saveas(gcf,save_path2);
 
-% HE
-opts3 = struct('tau',tau,'iter_num',iter,'ktype',5,'ibw',-1,'ptype',2,'h_pow',3);
-[Xout3,out3] = WGF_m(X_init, dlog_p, opts3);
+	opts1 = struct('tau',0.02,'iter_num',iter,'ktype',6,'ibw',-1,'ptype',2,'lbd',1);
+	[Xout1,out1] = KWGF_m(X_init, dlog_p, opts1);
 
-clf
-figure(3);
-contourf(X,Y,Z_plot,7);
-colormap('white')
-hold;
-Xp = Xout3(:,1);
-Yp = Xout3(:,2);
-hp = scatter(Xp,Yp,40,'filled');
-set(gcf,'position',[40,40,640,640]);
-alpha(hp,0.9);
-title('HE','FontSize',64);
+	clf
+	figure(1);
+	contourf(X,Y,Z_plot,7);
+	colormap('white')
+	hold on;
+	Xp = Xout1(:,1);
+	Yp = Xout1(:,2);
+	hp = scatter(Xp,Yp,40,'filled');
+	set(gcf,'position',[0,0,wid,hei]);
+	alpha(hp,0.9);
+	hold off;
+	title(strcat('KW-GF Iter: ',mat2str(iter)),'FontSize',36);
+	save_path1 = strcat(save_path,'KWGF_iter',mat2str(iter),'.eps');
+	print('-depsc',save_path1);
+	save_path2 = strcat(save_path,'KWGF_iter',mat2str(iter),'.png');
+	saveas(gcf,save_path2);
 
-print('-depsc','./result/toy/HE.eps');
-saveas(gcf,'./result/toy/HE.png');
+	opts2 = struct('tau',0.02,'iter_num',iter,'ktype',6,'ibw',-1,'ptype',2,'strong',0,'restart',1,'lbd',1);
+	[Xout2,out2] = KW_AIG(X_init, dlog_p, opts2);
 
-% BM
-opts4 = struct('tau',tau,'iter_num',iter,'ktype',6,'ibw',-1,'ptype',2);
-[Xout4,out4] = WGF_m(X_init, dlog_p, opts4);
+	clf
+	figure(1);
+	contourf(X,Y,Z_plot,7);
+	colormap('white')
+	hold on;
+	Xp = Xout2(:,1);
+	Yp = Xout2(:,2);
+	hp = scatter(Xp,Yp,40,'filled');
+	hold off;
+	set(gcf,'position',[0,0,wid,hei]);
+	alpha(hp,0.9);
+	title(strcat('KW-AIG Iter: ',mat2str(iter)),'FontSize',36);
+	save_path1 = strcat(save_path,'KWAIG_iter',mat2str(iter),'.eps');
+	print('-depsc',save_path1);
+	save_path2 = strcat(save_path,'KWAIG_iter',mat2str(iter),'.png');
+	saveas(gcf,save_path2);
 
-clf
-figure(4);
-contourf(X,Y,Z_plot,7);
-colormap('white')
-hold;
-Xp = Xout4(:,1);
-Yp = Xout4(:,2);
-hp = scatter(Xp,Yp,40,'filled');
-set(gcf,'position',[40,40,640,640]);
-alpha(hp,0.9);
-title('BM','FontSize',64);
+	opts1 = struct('tau',0.1,'iter_num',iter,'ktype',3,'ibw',1,'ptype',2,'adagrad',1);
+	[Xout1,out1] = SVGD_m(X_init, dlog_p, opts1);
 
-print('-depsc','./result/toy/BM.eps');
-saveas(gcf,'./result/toy/BM.png');
+	clf
+	figure(1);
+	contourf(X,Y,Z_plot,7);
+	colormap('white')
+	hold on;
+	Xp = Xout1(:,1);
+	Yp = Xout1(:,2);
+	hp = scatter(Xp,Yp,40,'filled');
+	set(gcf,'position',[0,0,wid,hei]);
+	alpha(hp,0.9);
+	hold off;
+	title(strcat('SVGD Iter: ',mat2str(iter)),'FontSize',36);
+	save_path1 = strcat(save_path,'SVGD_iter',mat2str(iter),'.eps');
+	print('-depsc',save_path1);
+	save_path2 = strcat(save_path,'SVGD_iter',mat2str(iter),'.png');
+	saveas(gcf,save_path2);
+
+	opts2 = struct('tau',0.1,'iter_num',iter,'ktype',3,'ktype_inner',6,'ibw',1,'ptype',2,'strong',0,'restart',1);
+	[Xout2,out2] = S_AIG(X_init, dlog_p, opts2);
+
+	clf
+	figure(1);
+	contourf(X,Y,Z_plot,7);
+	colormap('white')
+	hold on;
+	Xp = Xout2(:,1);
+	Yp = Xout2(:,2);
+	hp = scatter(Xp,Yp,40,'filled');
+	hold off;
+	set(gcf,'position',[0,0,wid,hei]);
+	alpha(hp,0.9);
+	title(strcat('S-AIG Iter: ',mat2str(iter)),'FontSize',36);
+	save_path1 = strcat(save_path,'SAIG_iter',mat2str(iter),'.eps');
+	print('-depsc',save_path1);
+	save_path2 = strcat(save_path,'SAIG_iter',mat2str(iter),'.png');
+	saveas(gcf,save_path2);
+end
+
+
 

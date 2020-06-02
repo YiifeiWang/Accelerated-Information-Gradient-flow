@@ -59,10 +59,10 @@ yticks(([0:6]*0.03+0.6));
 
 xlabel('Iteration');
 ylabel('Test accuracy')
-set(gca,'FontSize',24);
+set(gca,'FontSize',20);
 grid on;
 set(gca,'YMinorGrid','off','YMinorTick','off');
-set(gcf,'position',[40,40,1080,540]);
+set(gcf,'position',[40,40,900,360]);
 
 print('-depsc',strcat('./result/',res_name,'/results_',res_name,'_test_acc_',res_id,'.eps'));
 saveas(gcf,strcat('./result/',res_name,'/results_',res_name,'_test_acc_',res_id,'.png'));
@@ -86,10 +86,10 @@ ylim([-0.64,-0.5]);
 
 xlabel('Iteration');
 ylabel('Log likelihood')
-set(gca,'FontSize',24);
+set(gca,'FontSize',20);
 grid on;
 set(gca,'YMinorGrid','off','YMinorTick','off');
-set(gcf,'position',[40,40,1080,540]);
+set(gcf,'position',[40,40,900,360]);
 
 print('-depsc',strcat('./result/',res_name,'/results_',res_name,'_test_llh_',res_id,'.eps'));
 saveas(gcf,strcat('./result/',res_name,'/results_',res_name,'_test_llh_',res_id,'.png'));

@@ -1,8 +1,6 @@
 function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 %%%---------------------------------------------%%%
-% This implements Stein Variational Gradient Descent(SVGD).
-% Stein Variational Gradient Descent (SVGD): A General Purpose Bayesian Inference Algorithm. NIPS, 2016.
-% Qiang Liu and Dilin Wang. 
+% This implements AIG flows under the Stein metric
 %
 % The main part of this code is based on
 % https://github.com/DartML/Stein-Variational-Gradient-Descent
@@ -30,17 +28,26 @@ function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 % 
 %%%---------------------------------------------%%%
 	tic;
+	[N,d] = size(X_init);
 	if nargin<3; opts = []; end
 	if ~isfield(opts, 'tau'); opts.tau = 0.1;  end
 	if ~isfield(opts, 'iter_num'); opts.iter_num = 1e3; end
 	if ~isfield(opts, 'ktype');  opts.ktype = 1; end
+	if ~isfield(opts, 'ktype_inner');  opts.ktype_inner = 1; end
 	if ~isfield(opts, 'ibw');  opts.ibw = -1; end
+	if ~isfield(opts, 'ibw_inner');  opts.ibw_inner = -1; end
+
+	if ~isfield(opts, 'strong'); opts.strong = 1; end
+	if ~isfield(opts, 'sqbeta'); opts.sqbeta = 1; end
+	if ~isfield(opts, 'restart'); opts.restart = 0; end
+	if ~isfield(opts, 'r'); 	opts.r = 3; end
+	if ~isfield(opts, 'h_pow'); opts.h_pow = d/2+2; end
 
 	if ~isfield(opts, 'trace'); opts.trace = 0; end
 	if ~isfield(opts, 'record'); opts.record = 0; end
 	if ~isfield(opts, 'itPrint'); opts.itPrint = 1; end
-	if ~isfield(opts, 'adagrad'); opts.adagrad = 0; end
 	if ~isfield(opts, 'ptype'); opts.ptype = 1; end 
+	if ~isfield(opts, 'rtype'); opts.rtype = 1; end 
 
 	tau = opts.tau;
 	iter_num = opts.iter_num;
@@ -49,9 +56,12 @@ function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 	record = opts.record;
 	itPrint = opts.itPrint;
 
+	sqbeta = opts.sqbeta;
+
+	ibw_inner = opts.ibw_inner;
+
 	ptype = opts.ptype;
 
-	[N,d] = size(X_init);
 	X = X_init;
 
 	trace_ = [];
@@ -88,6 +98,15 @@ function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 	xi = 0;
 
 	eva_time = 0;
+	V = zeros([N,d]);
+	sqtau = sqrt(tau);
+
+	if opts.strong
+		coef = (1/sqtau-sqbeta)/(1/sqtau+sqbeta);
+	end
+
+	k = 0;
+
 	for iter = 1:iter_num
 		if opts.trace && (iter == 1 || mod(iter,itPrint)==0)
 			switch ptype
@@ -123,6 +142,7 @@ function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 			end
 		end
 		grad = dlog_p(X);
+		
 		XY = X*X';
 		X2 = sum(X.^2,2);
 		X2e = repmat(X2,1,N);
@@ -138,7 +158,6 @@ function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 				ibw = HE_bandwidth(X,ibw,HEopts);
 			case 3
 				ibw = opts.ibw;
-		
 		end
 		Kxy = exp(-H*0.5*ibw);
 		dxKxy = -Kxy*X;
@@ -147,19 +166,37 @@ function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 			dxKxy(:,i)=dxKxy(:,i) + X(:,i).*sumKxy;
 		end
 		dxKxy = dxKxy*ibw;
-		xi = (Kxy*grad + dxKxy)/N;
-		if opts.adagrad
-			if xi_history ==0
-				xi_history =  xi_history+xi.^2;
-			else
-				xi_history =  coef*xi_history + (1-coef)*xi.^2;
-				%xi_history =  xi_history + xi.^2;
-			end
-			X = X+tau*xi./(sqrt(xi_history)+1e-6);
-		else
-			X = X+tau*xi;
+
+		kopts = struct('iter',iter,'rtype',opts.rtype,'ibw',ibw_inner,'h_pow',opts.h_pow,'tau',sqtau);
+		[xi, ibw_out] = dlog_p_prac(X,opts.ktype_inner,kopts);
+		ibw_inner = ibw_out;
+
+		kV = zeros([N,d]);
+		for i = 1:N
+			kV = kV+(V*V(i,:)'*ibw).*(Kxy(:,i).*(X(i,:)-X));
 		end
+		kV = kV/N;
+
+		if opts.strong
+			V = coef*V-sqtau*kV+sqtau*(grad-xi);
+		else
+			V = (k-1)/(k-1+opts.r)*V-sqtau*kV+sqtau*(grad-xi);
+			k = k+1;
+		end
+
+		KxyV = Kxy*V;
+
+		if trace(KxyV'*(grad-xi))<0 && opts.restart
+			V = sqtau*(grad-xi);
+			k = 1;
+		end
+	
+		X = X+sqtau*KxyV/N;
+
+
 		
+
+
 	end
 
 	Xs = X;

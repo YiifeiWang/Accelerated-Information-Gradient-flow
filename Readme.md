@@ -16,11 +16,9 @@ We present a systematic framework for the Nesterov's accelerated gradient flows 
 
 Direct run `toy_example.m`. Figures will be saved under `./result/toy/`
 
-### Gaussian examples
+### Toy example of selecting bandwidth
 
-- For the part in the ODE level, run `Gaussian_example_flow.m`
-
-- For the part in the particle levle, run `Gaussian_example.m`. Figures will be saved under `./result/Gauss/`
+Direct run `toy_example_bandwidth.m`. Figures will be saved under `./result/toy_bandwidth/`
 
 ### Bayesian logistic regression
 

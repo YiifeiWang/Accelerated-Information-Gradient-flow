@@ -1,11 +1,7 @@
-function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
+function [Xs,out] = KW_AIG(X_init, dlog_p, opts)
 %%%---------------------------------------------%%%
-% This implements Stein Variational Gradient Descent(SVGD).
-% Stein Variational Gradient Descent (SVGD): A General Purpose Bayesian Inference Algorithm. NIPS, 2016.
-% Qiang Liu and Dilin Wang. 
-%
-% The main part of this code is based on
-% https://github.com/DartML/Stein-Variational-Gradient-Descent
+% This implements the the particle version of AIG flow under the
+% Kalman-Wasserstein metric
 % 
 % Input:
 % 		X_init --- initial particle positions, N*d matrix
@@ -15,6 +11,8 @@ function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 %		      iter_num --- number of iterations
 %				 ktype --- the type of the kernel
 %        		   ibw --- inverse of the bandwidth of the kernel
+%				strong --- whether the objective function is 'strongly' convex
+%				sqbeta --- the square root of strongly convex coefficient beta
 %                trace --- whether to trace the information during the process
 %						   0: no || 1: yes
 %				record --- whether to print the recorded inforamtion during the process
@@ -25,40 +23,61 @@ function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 %							  opts.A shall NOT be empty
 %						   1: Bayesian logistic regression
 %							  opts.X_test, opts.y_test shall NOT be empty
-%
+%				 rtype --- option for the kernel bandwidth selection subroutine
+%				 h_pow --- parameter for the kernel bandwidth selection subroutine
+%				 ttype --- option whether to decay step size
+%			   tau_dec --- decay rate of the step size
+%			   tau_itv --- decay interval of the step size
 %
 % 
 %%%---------------------------------------------%%%
 	tic;
-	if nargin<3; opts = []; end
+	[N,d] = size(X_init);
+	if nargin < 3; opts = []; end
 	if ~isfield(opts, 'tau'); opts.tau = 0.1;  end
 	if ~isfield(opts, 'iter_num'); opts.iter_num = 1e3; end
 	if ~isfield(opts, 'ktype');  opts.ktype = 1; end
 	if ~isfield(opts, 'ibw');  opts.ibw = -1; end
 
+	if ~isfield(opts, 'strong'); opts.strong = 1; end
+	if ~isfield(opts, 'sqbeta'); opts.sqbeta = 1; end
+	if ~isfield(opts, 'restart'); opts.restart = 0; end
+	if ~isfield(opts, 'r'); 	opts.r = 3; end
+
+	if ~isfield(opts, 'h_pow'); opts.h_pow = d/2+2; end
+
 	if ~isfield(opts, 'trace'); opts.trace = 0; end
 	if ~isfield(opts, 'record'); opts.record = 0; end
 	if ~isfield(opts, 'itPrint'); opts.itPrint = 1; end
-	if ~isfield(opts, 'adagrad'); opts.adagrad = 0; end
 	if ~isfield(opts, 'ptype'); opts.ptype = 1; end 
+	if ~isfield(opts, 'rtype'); opts.rtype = 1; end 
+
+	if ~isfield(opts, 'lbd'); opts.lbd = 1; end 
+
+	if ~isfield(opts, 'ttype'); opts.ttype = 1; end
+	if ~isfield(opts, 'tau_dec'); opts.tau_dec = 1; end
+	if ~isfield(opts, 'tau_itv'); opts.tau_itv = 100; end
 
 	tau = opts.tau;
 	iter_num = opts.iter_num;
 	ktype = opts.ktype;
+	ibw = opts.ibw;
+
+	sqbeta = opts.sqbeta;
 
 	record = opts.record;
 	itPrint = opts.itPrint;
-
 	ptype = opts.ptype;
 
-	[N,d] = size(X_init);
 	X = X_init;
 
-	trace_ = [];
+	lbd = opts.lbd;
+
 	if opts.trace
 		switch ptype
 			case 0
-				trace_ = zeros(floor(iter_num/itPrint)+1,1);
+				trace_.H = zeros(floor(iter_num/itPrint)+1,1);
+				trace_.iter = zeros(floor(iter_num/itPrint)+1,1);
 			case 1
 				trace_.test_acc = zeros(floor(iter_num/itPrint)+1,1);
 				trace_.test_llh = zeros(floor(iter_num/itPrint)+1,1);
@@ -81,24 +100,33 @@ function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 	        'iter', 'TBA','TBA','TBA', 'TBA', 'TBA');
 	    str_num = ['%4d | %+2.4e %+2.4e %+2.4e %2.1e %2.1e \n'];
 	end
-	
 
-	xi_history = 0;
-	coef = 0.9;
+
+	sqtau = sqrt(tau);
+
+	if opts.strong
+		coef = (1/sqtau-sqbeta)/(1/sqtau+sqbeta);
+	end
+
+	V = 0;
 	xi = 0;
-
+	k = 0;
 	eva_time = 0;
 	for iter = 1:iter_num
 		if opts.trace && (iter == 1 || mod(iter,itPrint)==0)
 			switch ptype
 				case 0
+					tmp1 = toc;
 					Sigma = cov(X);
 					if cond(Sigma)<1e-12;
 						break
 					end
 					tmp = A*Sigma;
 					H = (-d-log(det(Sigma))-logdetA+trace(tmp))/2;
-					trace_(floor(iter/itPrint)+1) = H;
+					eva_time = eva_time+toc-tmp1;
+					trace_.H(floor(iter/itPrint)+1) = H;
+					trace_.iter(floor(iter/itPrint)+1) = iter;
+					trace_.time(floor(iter/itPrint)+1) = toc-eva_time;
 				case 1
 					tmp1 = toc;
 					[test_acc, test_llh] = bayeslr_evaluation(X, opts.X_test, opts.y_test);
@@ -107,6 +135,8 @@ function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 					trace_.test_llh(floor(iter/itPrint)+1) = test_llh;
 					trace_.iter(floor(iter/itPrint)+1) = iter;
 					trace_.time(floor(iter/itPrint)+1) = toc-eva_time;
+				case 2
+					trace_(floor(iter/itPrint)+1) = ibw;
 			end
 			if record
 		        if iter == 1 || mod(iter,20*itPrint) == 0 
@@ -115,56 +145,47 @@ function [Xs,out] = SVGD_m(X_init, dlog_p, opts)
 		        if iter == 1 || mod(iter,itPrint) == 0
 		        	switch ptype
 						case 0
-							fprintf(str_num,iter,H, min(eig(Sigma)), max(eig(Sigma)),0,0);
+							fprintf(str_num,iter,H, ibw, 0,0,0);
 						case 1
-							fprintf(str_num,iter,test_acc, test_llh, 0,0,0);
+							fprintf(str_num,iter,test_acc, test_llh, k,0,0);
+						case 2
+							fprintf(str_num,iter,ibw, 0, 0,0,0);
 					end
 		        end
 			end
 		end
-		grad = dlog_p(X);
-		XY = X*X';
-		X2 = sum(X.^2,2);
-		X2e = repmat(X2,1,N);
-		H = X2e+X2e'-2*XY;
-		switch ktype
+		
+		switch opts.ttype
 			case 1
-				ibw = 1/(0.5*median(H(:))/log(N+1));
+				tau = opts.tau*opts.tau_dec^(floor(iter/opts.tau_itv));
 			case 2
-				if iter == 1
-					ibw = 1/(0.5*median(H(:))/log(N+1));
-				end
-				HEopts.rtype = 1;
-				ibw = HE_bandwidth(X,ibw,HEopts);
-			case 3
-				ibw = opts.ibw;
-		
+				tau = opts.tau/iter^opts.tau_dec;
 		end
-		Kxy = exp(-H*0.5*ibw);
-		dxKxy = -Kxy*X;
-		sumKxy = sum(Kxy,2);
-		for i=1:d
-			dxKxy(:,i)=dxKxy(:,i) + X(:,i).*sumKxy;
-		end
-		dxKxy = dxKxy*ibw;
-		xi = (Kxy*grad + dxKxy)/N;
-		if opts.adagrad
-			if xi_history ==0
-				xi_history =  xi_history+xi.^2;
-			else
-				xi_history =  coef*xi_history + (1-coef)*xi.^2;
-				%xi_history =  xi_history + xi.^2;
-			end
-			X = X+tau*xi./(sqrt(xi_history)+1e-6);
+		sqtau = sqrt(tau);
+		grad = dlog_p(X);
+		kopts = struct('iter',iter,'rtype',opts.rtype,'ibw',ibw,'h_pow',opts.h_pow,'tau',sqtau);
+		[xi, ibw_out] = dlog_p_prac(X,ktype,kopts);
+		ibw = ibw_out;
+		mX = mean(X,1);
+		X_hat = X-mX;
+		C = (X_hat'*X_hat)/(N-1)+lbd*eye(d);
+		covV = (V'*V)/(N-1);
+		if opts.strong
+			V = coef*V-sqtau*X_hat*covV+sqtau*(grad-xi);
 		else
-			X = X+tau*xi;
+			V = (k-1)/(k-1+opts.r)*V+sqtau*(grad-xi)-sqtau*X_hat*covV;
+			k = k+1;
 		end
-		
+		if trace((grad-xi)*C*V')<0 && opts.restart
+			V = zeros([N,d]);
+			k = 1;
+		end
+		X = X+sqtau*V*C;
 	end
 
 	Xs = X;
 	out = [];
-	if opts.trace
+	if opts.trace;
 		out.trace = trace_;
 	end
 end

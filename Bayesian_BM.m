@@ -3,8 +3,8 @@
 % Qiang Liu and Dilin Wang. 
 % Stein Variational Gradient Descent (SVGD): A General Purpose Bayesian Inference Algorithm. NIPS, 2016.
 
-addpath('./utils');
-addpath('./solvers');
+% addpath('./utils');
+% addpath('./solvers');
 
 dataset_name = 'covtype';
 id_test = 1;
@@ -32,16 +32,11 @@ X_test = X(test_idx, :); y_test = y(test_idx);
 n_train = length(train_idx); n_test = length(test_idx);
 
 % example of bayesian logistic regression
-batchsize = 50; % subsampled mini-batch size
+batchsize = 100; % subsampled mini-batch size
 a0 = 1; b0 = .01; % hyper-parameters
 
-dlog_p  = @(theta)dlog_p_Bayesian(theta, X_train, y_train); % returns the first order derivative of the posterior distribution 
+dlog_p  = @(theta)dlog_p_Bayesian(theta, X_train, y_train,batchsize,a0,b0); % returns the first order derivative of the posterior distribution 
 
-
-SVGD.name = 'SVGD';
-SVGD.Pname = 'SVGD';
-SVGD.opts = struct('tau',0.05,'iter_num',6e3,'record',1,'trace',1,'ibw',-1,'ktype',1,...
-	'itPrint',1e2,'X_test',X_test,'y_test',y_test,'adagrad', 1);
 
 WNAG.name = 'WNAG';
 WNAG.Pname = 'WNAG';
@@ -58,22 +53,41 @@ MCMC.Pname = 'MCMC';
 MCMC.opts = struct('tau',1e-5,'iter_num',6e3,'record',1,'trace',1,'ibw',-1,'ktype',0,...
 	'itPrint',1e2,'X_test',X_test,'y_test',y_test,'tau_itv', 1e2, 'tau_dec',0.9);
 
-WGF.name = 'WGF';
-WGF.Pname = 'WGF';
+WGF.name = 'W-GF';
+WGF.Pname = 'W-GF';
 WGF.opts = struct('tau',1e-5,'iter_num',6e3,'record',1,'trace',1,'ibw',-1,'ktype',6,...
 	'itPrint',1e2,'X_test',X_test,'y_test',y_test,'tau_itv', 1e2, 'tau_dec',0.9,'ttype',1);
 
-AIG.name = 'AIG-SE';
-AIG.Pname = 'AIG';
-AIG.opts = struct('tau',1e-5,'iter_num',6e3,'record',1,'trace',1,'ibw',-1,'ktype',6,...
-	'itPrint',1e2,'X_test',X_test,'y_test',y_test,'tau_itv', 1e2, 'tau_dec',0.9, 'restart',0,'strong',0,'ttype',2);
-
-AIGr.name = 'AIG-SE';
-AIGr.Pname = 'AIG-r';
-AIGr.opts = struct('tau',1e-6,'iter_num',6e3,'record',1,'trace',1,'ibw',-1,'ktype',6,...
+WAIG.name = 'W-AIG';
+WAIG.Pname = 'W-AIG';
+WAIG.opts = struct('tau',1e-6,'iter_num',6e3,'record',1,'trace',1,'ibw',-1,'ktype',6,...
 	'itPrint',1e2,'X_test',X_test,'y_test',y_test,'tau_itv', 1e2, 'tau_dec',0.9, 'restart',1,'strong',0,'ttype',1);
 
-algorithm = {MCMC,SVGD,WNAG,Wnes,WGF,AIG,AIGr};
+KWGF.name = 'KW-GF';
+KWGF.Pname = 'KW-GF';
+KWGF.opts = struct('tau',1e-7,'iter_num',6e3,'record',1,'trace',1,'ibw',-1,'ktype',6,...
+	'itPrint',1e2,'X_test',X_test,'y_test',y_test,'tau_itv', 1e2, 'tau_dec',0.9,'ttype',1,'lbd',1);
+
+KWAIG.name = 'KW-AIG';
+KWAIG.Pname = 'KW-AIG';
+KWAIG.opts = struct('tau',1e-8,'iter_num',6e3,'record',1,'trace',1,'ibw',-1,'ktype',6,...
+	'itPrint',1e2,'X_test',X_test,'y_test',y_test,'tau_itv', 1e2, 'tau_dec',0.9, 'restart',1,'strong',0,'ttype',1,'lbd',1);
+
+
+SVGD.name = 'SVGD';
+SVGD.Pname = 'SVGD';
+SVGD.opts = struct('tau',0.05,'iter_num',6e3,'record',1,'trace',1,'ibw',-1,'ktype',1,...
+	'itPrint',1e2,'X_test',X_test,'y_test',y_test,'adagrad', 1);
+
+SAIG.name = 'S-AIG';
+SAIG.Pname = 'S-AIG';
+SAIG.opts = struct('tau',1e-5,'iter_num',6e3,'record',1,'trace',1,'ibw',-1,'ktype',1,...
+	'itPrint',1e2,'X_test',X_test,'y_test',y_test,'tau_itv', 1e2, 'tau_dec',0.9, 'restart',1,'strong',0,'ttype',1,...
+	'ktype_inner',6);
+
+
+
+algorithm = {MCMC,WNAG,Wnes,WGF,WAIG,KWGF,KWAIG,SVGD,SAIG};
 results = {};
 
 for j = 1:num_repeat
@@ -89,16 +103,24 @@ for j = 1:num_repeat
 	for i = 1:length(algorithm)
 		fprintf('Test %d/%d, Alg: %s\n',j,num_repeat,algorithm{i}.Pname);
 		switch algorithm{i}.name
-			case 'WGF'
+			case 'MCMC'
+				[~,out] = WGF_m(thetaMC,dlog_p,algorithm{i}.opts);
+			case 'WNAG'
+				[~,out] = WNAG_m(theta0,dlog_p,algorithm{i}.opts);
+			case 'W-GF'
 				[~,out] = WGF_m(theta0,dlog_p,algorithm{i}.opts);
 			case 'SVGD'
 				[~,out] = SVGD_m(theta0,dlog_p,algorithm{i}.opts);
-			case 'AIG-SE'
-				[~,out] = AIG_SE(theta0,dlog_p,algorithm{i}.opts);
-			case 'WNAG'
-				[~,out] = WNAG_m(theta0,dlog_p,algorithm{i}.opts);
-			case 'MCMC'
-				[~,out] = WGF_m(thetaMC,dlog_p,algorithm{i}.opts);
+			case 'KW-GF'
+				[~,out] = KWGF_m(theta0,dlog_p,algorithm{i}.opts);
+			case 'KW-AIG'
+				[~,out] = KW_AIG(theta0,dlog_p,algorithm{i}.opts);
+			case 'W-AIG'
+				[~,out] = W_AIG(theta0,dlog_p,algorithm{i}.opts);
+			case 'S-AIG'
+				[~,out] = S_AIG(theta0,dlog_p,algorithm{i}.opts);
+			case 'WGF-BB'
+				[~,out] = WGF_ns(theta0,dlog_p_BB,algorithm{i}.opts);
 		end
 		results{i,j}.name = algorithm{i}.name;
 		results{i,j}.Pname = algorithm{i}.Pname;
