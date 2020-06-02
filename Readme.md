@@ -6,7 +6,7 @@ We present the codes for the numerical experiments in the paper [Accelerated Inf
 
 ##  Abstract
 
-We present a systematic framework for the Nesterov's accelerated gradient flows in the spaces of probabilities embedded with information metrics. Here two metrics are considered, including both the Fisher-Rao metric and the Wasserstein-$2$ metric. For the Wasserstein-$2$ metric case, we prove the convergence properties of the accelerated gradient flows, and introduce their formulations in Gaussian families. Furthermore, we propose a practical discrete-time algorithm in particle implementations with an adaptive restart technique.  We formulate a novel bandwidth selection method, which learns the Wasserstein-$2$ gradient direction from Brownian-motion samples. Experimental results including Bayesian inference show the strength of the current method compared with the state-of-the-art.
+We present a framework for Nesterov's accelerated gradient flows in probability space. Here four examples of information metrics are considered, including Fisher-Rao metric, Wasserstein-2 metric, Kalman-Wasserstein metric and Stein metric. For both Fisher-Rao and Wasserstein-2 metrics, we prove convergence properties of accelerated gradient flows. In implementations, we propose a sampling-efficient discrete-time algorithm for Wasserstein-2, Kalman-Wasserstein and Stein accelerated gradient flows with a restart technique. We also formulate a kernel bandwidth selection method, which learns the gradient of logarithm of density from Brownian-motion samples. Numerical experiments, including Bayesian logistic regression and Bayesian neural network, show the strength of the proposed methods compared with state-of-the-art algorithms.
 
 
 
